@@ -138,11 +138,15 @@ const routes = [
 ];
 
 async function render(path) {
-  // path에 맞는 컴포넌트 반환
-  const component =
-    routes.find((route) => route.path === path)?.component ?? NotFound;
-  // 만들어진 컴포넌트를 html root요소에 삽입
-  rootEl.replaceChildren(await component());
+  try {
+    // path에 맞는 컴포넌트 반환
+    const component =
+      routes.find((route) => route.path === path)?.component ?? NotFound;
+    // 만들어진 컴포넌트를 html root요소에 삽입
+    rootEl.replaceChildren(await component());
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 // ajax 요청은 주소창의 url을 변경시키지 않으므로 history 관리가 되지 않는다.
