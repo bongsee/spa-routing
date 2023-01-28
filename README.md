@@ -58,3 +58,137 @@
 - 각각의 소스코드를 해석해보고, 각 방식이 가지는 trade-off를 알아보자.
 
 ### link
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>SPA-Router - Link</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <nav>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/service.html">Service</a></li>
+        <li><a href="/about.html">About</a></li>
+      </ul>
+    </nav>
+    <section>
+      <h1>Home</h1>
+      <p>This is main page</p>
+    </section>
+  </body>
+</html>
+```
+
+- a tag의 href 속성값인 리소스 경로가 `URL의 path에 추가`되고 해당 리소스를 `서버에 요청`한다.
+- 서버는 리소스를 클라이언트에 응답(`서버 사이드 렌더링(SSR)`).
+- 브라우저는 서버가 응답한 html을 렌더링하게 되므로 `새로고침`이 발생.
+
+<img src="https://poiemaweb.com/img/traditional-webpage-lifecycle.png" width="400" />
+
+- 각 페이지마다 고유의 URL이 존재하므로 `history 관리 및 SEO 대응에 아무런 문제가 없다`.
+- 하지만 요청마다 `중복된 리소스를 응답`받아야 하며 전체 페이지를 다시 렌더링하는 과정에서 `새로고침이 발생`
+
+### ajax
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>SPA-Router - ajax</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="module" src="js/index.js"></script>
+  </head>
+
+  <body>
+    <nav>
+      <ul id="navigation">
+        <!-- a href 속성값으로 서버 측에서 미리 정의한(약속된) endpoint를 사용한다. -->
+        <li><a href="/">Home</a></li>
+        <li><a href="/service">Service</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </nav>
+    <div id="root">Loading...</div>
+  </body>
+</html>
+```
+
+- ajax 방식은 내비게이션 `클릭 이벤트를 캐치`하고 사전에 `서버로의 요청을 방지`한다.
+- 후에 href 속성값으로 명시된 path를 추출하여 `ajax 요청`을 실시한다.
+
+```javascript
+import { Home, Service, About, NotFound } from "./components.js";
+
+const navigationEl = document.getElementById("navigation");
+const rootEl = document.getElementById("root");
+
+const routes = [
+  { path: "/", component: Home },
+  { path: "/service", component: Service },
+  { path: "/about", component: About },
+];
+
+async function render(path) {
+  // path에 맞는 컴포넌트 반환
+  const component =
+    routes.find((route) => route.path === path)?.component ?? NotFound;
+  // 만들어진 컴포넌트를 html root요소에 삽입
+  rootEl.replaceChildren(await component());
+}
+
+// ajax 요청은 주소창의 url을 변경시키지 않으므로 history 관리가 되지 않는다.
+navigationEl.addEventListener("click", (event) => {
+  if (!event.target.matches("#navigation > li > a")) return;
+  event.preventDefault();
+
+  const path = event.target.getAttribute("href");
+  render(path);
+});
+
+// 주소창의 url이 변경되지 않기 때문에 새로고침 시 현재 렌더링된 페이지가 아닌 루트 페이지가 요청된다.
+window.addEventListener("DOMContentLoaded", () => render("/"));
+```
+
+```javascript
+// components.js
+const createElement = (domString) => {
+  const tplEl = document.createElement("template");
+  tplEl.innerHTML = domString;
+  return tplEl.content;
+};
+
+const fetchData = async (url) => {
+  const res = await fetch(url);
+  const json = await res.json();
+  return json;
+};
+
+// 컴포넌트 반환 함수
+export const Home = async () => {
+  const { title, content } = await fetchData("/api/home");
+  return createElement(`<h1>${title}</h1><p>${content}</p>`);
+};
+export const Service = async () => {
+  const { title, content } = await fetchData("/api/service");
+  return createElement(`<h1>${title}</h1><p>${content}</p>`);
+};
+export const About = async () => {
+  const { title, content } = await fetchData("/api/about");
+  return createElement(`<h1>${title}</h1><p>${content}</p>`);
+};
+export const NotFound = async () => createElement(`<h1>404 Not Found</h1>`);
+```
+
+- ajax 요청은 주소창의 `URL을 변경시키지 않는다`.
+- 브라우저의 뒤로가기, 앞으로가기 등의 `history 관리`가 동작하지 않음을 의미. 따라서 history.back(), history.go(n) 등도 동작하지 않는다.
+- 주소창의 URL이 변경되지 않기 때문에 새로고침을 해도 `언제나 첫 페이지`가 다시 로딩된다.
+- 동일한 하나의 URL로 동작하는 ajax 방식은 `SEO 이슈`에서도 자유로울 수 없다.
