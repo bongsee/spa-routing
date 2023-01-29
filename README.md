@@ -196,3 +196,70 @@ export const NotFound = async () => createElement(`<h1>404 Not Found</h1>`);
 - 브라우저의 뒤로가기, 앞으로가기 등의 `history 관리`가 동작하지 않음을 의미. 따라서 history.back(), history.go(n) 등도 동작하지 않는다.
 - 주소창의 URL이 변경되지 않기 때문에 새로고침을 해도 `언제나 첫 페이지`가 다시 로딩된다.
 - 동일한 하나의 URL로 동작하는 ajax 방식은 `SEO 이슈`에서도 자유로울 수 없다.
+
+### ajax + hash
+
+- ajax 방식은 불필요한 리소스 중복 요청을 방지할 수 있고 새로고침이 없는 사용자 경험을 구현할 수 있다는 장점이 있지만 `history 관리가 되지 않는 단점`이 있다.
+- 이를 보완한 방법이 Hash 방식이다.
+- Hash 방식은 `URI의 fragment identifier(#service)`의 고유 기능인 `앵커(anchor)`를 사용한다.
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>SPA-Router - Hash</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="module" src="js/index.js"></script>
+  </head>
+
+  <body>
+    <nav>
+      <ul id="navigation">
+        <li><a href="#">Home</a></li>
+        <li><a href="#service">Service</a></li>
+        <li><a href="#about">About</a></li>
+      </ul>
+    </nav>
+    <div id="root">Loading...</div>
+  </body>
+</html>
+```
+
+- `URL이 동일한 상태에서 hash만 변경`되면 브라우저는 `서버에 어떠한 요청도 하지 않는다`. 즉, 서버에 새로운 요청을 보내지 않으며 따라서 페이지가 갱신되지 않는다.
+- hash는 요청을 위한 것이 아니라 fragment identifier(#service)의 고유 기능인 앵커(anchor)로 `웹페이지 내부에서 이동을 위한 것`이기 때문이다.
+- hash 방식은 페이지마다 `고유의 논리적 URL이 존재`하므로 `history 관리에 아무런 문제가 없다`.
+
+```javascript
+import { Home, Service, About, NotFound } from "./components.js";
+
+const rootEl = document.getElementById("root");
+
+const routes = [
+  { path: "", component: Home },
+  { path: "service", component: Service },
+  { path: "about", component: About },
+];
+
+const render = async () => {
+  try {
+    // url의 hash 정보 추출
+    const hash = window.location.hash.replace("#", "");
+    const component =
+      routes.find((route) => route.path === hash)?.component ?? NotFound;
+    rootEl.replaceChildren(await component());
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+// url의 hash가 변경하면 발생하는 이벤트인 `hashchange` 이벤트를 사용하여 hash의 변경을 감지하여 필요한 ajax 요청을 수행.
+window.addEventListener("hashchange", render);
+
+// render 함수는 url의 hash를 취득해 새로고침 직전에 렌더링되었던 페이지를 다시 렌더링.
+window.addEventListener("DOMContentLoaded", render);
+```
+
+- 또 다른 문제는 `SEO 이슈`이다. 웹 크롤러는 검색 엔진이 웹사이트의 콘텐츠를 수집하기 위해 HTTP와 URL 스펙(RFC-2396같은)을 따른다. 이러한 크롤러는 JavaScript를 실행시키지 않기 때문에 hash 방식으로 만들어진 사이트의 콘텐츠를 수집할 수 없다. 구글은 해시뱅을 일반적인 URL로 변경시켜 이 문제를 해결한 것으로 알려져 있지만 다른 검색 엔진은 hash 방식으로 만들어진 사이트의 콘텐츠를 수집할 수 없을 수도 있다.
