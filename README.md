@@ -57,7 +57,9 @@
 
 - 각각의 소스코드를 해석해보고, 각 방식이 가지는 trade-off를 알아보자.
 
-### link
+## Routing 방식 4가지
+
+### 1. link
 
 ```html
 <!DOCTYPE html>
@@ -94,7 +96,7 @@
 - 각 페이지마다 고유의 URL이 존재하므로 `history 관리 및 SEO 대응에 아무런 문제가 없다`.
 - 하지만 요청마다 `중복된 리소스를 응답`받아야 하며 전체 페이지를 다시 렌더링하는 과정에서 `새로고침이 발생`
 
-### ajax
+### 2. ajax
 
 ```html
 <!DOCTYPE html>
@@ -197,7 +199,7 @@ export const NotFound = async () => createElement(`<h1>404 Not Found</h1>`);
 - 주소창의 URL이 변경되지 않기 때문에 새로고침을 해도 `언제나 첫 페이지`가 다시 로딩된다.
 - 동일한 하나의 URL로 동작하는 ajax 방식은 `SEO 이슈`에서도 자유로울 수 없다.
 
-### ajax + hash
+### 3. ajax + hash
 
 - ajax 방식은 불필요한 리소스 중복 요청을 방지할 수 있고 새로고침이 없는 사용자 경험을 구현할 수 있다는 장점이 있지만 `history 관리가 되지 않는 단점`이 있다.
 - 이를 보완한 방법이 Hash 방식이다.
@@ -263,3 +265,130 @@ window.addEventListener("DOMContentLoaded", render);
 ```
 
 - 또 다른 문제는 `SEO 이슈`이다. 웹 크롤러는 검색 엔진이 웹사이트의 콘텐츠를 수집하기 위해 HTTP와 URL 스펙(RFC-2396같은)을 따른다. 이러한 크롤러는 JavaScript를 실행시키지 않기 때문에 hash 방식으로 만들어진 사이트의 콘텐츠를 수집할 수 없다. 구글은 해시뱅을 일반적인 URL로 변경시켜 이 문제를 해결한 것으로 알려져 있지만 다른 검색 엔진은 hash 방식으로 만들어진 사이트의 콘텐츠를 수집할 수 없을 수도 있다.
+
+### 4. ajax + pushState (pjax)
+
+- hash 방식의 가장 큰 단점은 `SEO 이슈`이다.
+- 이를 보완한 방법이 HTML5의 `History API인 pushState`와 `popstate 이벤트`를 사용한 `pjax(pushState + ajax)` 방식이다.
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>SPA-Router - Pjax</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="module" src="js/index.js"></script>
+  </head>
+
+  <body>
+    <nav>
+      <ul id="navigation">
+        <li><a href="/">Home</a></li>
+        <li><a href="/service">Service</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </nav>
+    <div id="root">Loading...</div>
+  </body>
+</html>
+```
+
+- 내비게이션 `클릭 이벤트를 캐치`하고 preventDefault 메서드를 사용해 `서버로의 요청을 방지`한다. 이후, href 속성값 path을 사용하여 ajax 요청을 하는 방식.
+- `ajax 요청은 브라우저 주소창의 URL을 변경시키지 않아 history 관리가 불가능`하다. 이때 사용하는 것이 `pushState 메서드`이다.
+- pushState 메서드는 `주소창의 URL을 변경`하고 `URL을 history entry로 추가`하지만 `서버로 HTTP 요청을 하지는 않는다`.
+
+```javascript
+import { Home, Service, About, NotFound } from "./components.js";
+
+const navigationEl = document.getElementById("navigation");
+const rootEl = document.getElementById("root");
+
+const routes = [
+  { path: "/", component: Home },
+  { path: "/service", component: Service },
+  { path: "/about", component: About },
+];
+
+const render = async (path) => {
+  // 새로고침 혹은 앞으로 가기/ 뒤로가기 시 path값을 처리하기 위해 _path 변수를 통해 상태 관리를 한다.
+  const _path = path ?? window.location.pathname;
+
+  try {
+    const component =
+      routes.find((route) => route.path === _path)?.component || NotFound;
+    rootEl.replaceChildren(await component());
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+navigationEl.addEventListener("click", (event) => {
+  if (!event.target.matches("#navigation > li > a")) return;
+
+  event.preventDefault();
+  const path = event.target.getAttribute("href");
+
+  // 이동할 페이지가 현재 페이지와 같다면 함수 종료
+  if (window.location.pathname === path) return;
+
+  window.history.pushState(null, null, path);
+  render(path);
+});
+
+window.addEventListener("popstate", () => {
+  render();
+});
+
+/**
+ * 웹페이지가 처음 로딩되면 window.location.pathname를 확인해 페이지를 이동시킨다.
+ * 새로고침을 클릭하면 현 페이지(예를 들어 localhost:5004/service)가 서버에 요청된다.
+ * 이에 응답하는 처리는 서버에서 구현해야 한다.
+ */
+window.addEventListener("DOMContentLoaded", () => {
+  render();
+});
+```
+
+- history.pushState 메서드는 주소창의 url을 변경하지만 HTTP 요청을 서버로 전송하지 않는다.
+- 페이지마다 고유의 URL이 존재하므로 `history 관리가 가능`하다.
+- hash를 사용하지 않으므로 `SEO에도 문제가 없다`.
+
+- 주의할 점은, 브라우저의 `새로고침` 버튼을 클릭하면 pjax 방식은 pushState로 바뀐 주소창의 URL 경로로 서버에 요청을 보내기 때문에 이에 대한 처리가 필요하다.
+- 즉, pjax 방식은 서버 렌더링 방식과 ajax 방식이 혼재되어 있는 방식으로 `서버의 지원이 필요`하다. 이에 대한 서버 구현은 다음과 같다.
+
+```javascript
+const express = require("express");
+const path = require("path");
+
+const app = express();
+const port = 5004;
+
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/api/:page", (req, res) => {
+  const { page } = req.params;
+  res.sendFile(path.join(__dirname, `data/${page}.json`));
+});
+
+// 페이지 새로고침을 위한 처리
+// 브라우저 새로고침 시 서버는 index.html을 전달하고 클라이언트는 window.location.pathname를 참조해 다시 라우팅한다.
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+app.listen(port, () => {
+  console.log(`Listening on https:/localhost:${port}`);
+});
+```
+
+## 결론
+
+| 구분             | History 관리 | SEO 대응 | 사용자 경험 | 서버 렌더링 | 구현 난이도 | IE 대응 |
+| ---------------- | ------------ | -------- | ----------- | ----------- | ----------- | ------- |
+| link 방식        | ◯            | ◯        | ✗           | ◯           | 간단        |
+| ajax 방식        | ✗            | ✗        | ◯           | ✗           | 보통        | 7 이상  |
+| ajax + hash 방식 | ◯            | ✗        | ◯           | ✗           | 보통        | 8 이상  |
+| pjax 방식        | ◯            | ◯        | ◯           | △           | 복잡        | 10 이상 |
