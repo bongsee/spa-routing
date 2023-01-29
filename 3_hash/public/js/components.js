@@ -11,20 +11,17 @@ const fetchData = async url => {
 }
 
 // 컴포넌트 변환 함수
-const Home = () => {
-  const data = fetchData('api/home');
-  const { title, content } = data;
+export const Home = async () => {
+  const { title, content }  = await fetchData('/api/home');
   return createElement(`<h1>${title}</h1><p>${content}</p>`);
 }
-const Service = () => {
-  const data = fetchData('api/service');
-  const { title, content } = data;
+export const Service = async () => {
+  const { title, content }  = await fetchData('/api/service');
   return createElement(`<h1>${title}</h1><p>${content}</p>`);
 }
-const About = () => {
-  const data = fetchData('api/about');
-  const { title, content } = data;
+export const About = async () => {
+  const { title, content } = await fetchData('/api/about');
   return createElement(`<h1>${title}</h1><p>${content}</p>`);
 }
 
-const NotFound = () => createElement(`<h1>404 Not Found</h1>`);
+export const NotFound = () => createElement(`<h1>404 Not Found</h1>`);
